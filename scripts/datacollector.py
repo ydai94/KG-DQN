@@ -7,6 +7,15 @@ import requests
 import json
 from textworld.core import EnvInfos
 
+import subprocess
+import time
+def start_openie(install_path):
+    print('Starting OpenIE from', install_path)
+    subprocess.Popen(['java', '-mx8g', '-cp', '*', \
+                      'edu.stanford.nlp.pipeline.StanfordCoreNLPServer', \
+                      '-port', '9001', '-timeout', '15000', '-quiet'], cwd=install_path)
+    time.sleep(1)
+
 class NaiveAgent(textworld.Agent):
     def __init__(self, seed=1234):
         self.seed = seed
@@ -167,19 +176,21 @@ def generate_data(games, type):
             relations = set()
 
             sents = input_file.read()
-
+            sentences = sents.split('\n')
+            triples = []
+            for sent in sentences:
+                res = call_stanford_openie(sent)['sentences']
+                for r in res:
+                    triples.append(r['openie'])
             try:
-                # triple = callStanfordReq(sent)['sentences'][0]['openie']
-                for ov in call_stanford_openie(sents)['sentences']:
-                    triple = ov['openie']
-                    # print(triple)
-                    # print(sent,)
+                
+                for triple in triples:
                     for tr in triple:
                         h, r, t = tr['subject'], tr['relation'], tr['object']
                         entities.add(h)
                         entities.add(t)
                         relations.add(r)
-                        # print(' | ' + h + ', ' + r + ', ' + t,)
+                        print(' | ' + h + ', ' + r + ', ' + t,)
             except:
                 print("OpenIE error")
 

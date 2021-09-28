@@ -10,7 +10,7 @@ import random
 
 
 def call_stanford_openie(sentence):
-    url = "http://localhost:9000/"
+    url = "http://localhost:9001/"
     querystring = {
         "properties": "%7B%22annotators%22%3A%20%22openie%22%7D",
         "pipelineLanguage": "en"}

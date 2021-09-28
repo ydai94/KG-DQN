@@ -5,7 +5,7 @@ import sys
 import glob
 import requests
 import json
-
+from textworld.core import EnvInfos
 
 class NaiveAgent(textworld.Agent):
     def __init__(self, seed=1234):
@@ -30,23 +30,21 @@ class NaiveAgent(textworld.Agent):
 
         return action
 
-
 class RandomAgent(textworld.Agent):
-    """ Agent that randomly selects commands from the admissible ones. """
-
     def __init__(self, seed=1234):
         self.seed = seed
         self.rng = np.random.RandomState(self.seed)
 
     def reset(self, env):
-        # Activate state tracking in order to get the admissible commands.
-        env.activate_state_tracking()
-        env.compute_intermediate_reward()  # Needed to detect if a game is lost.
+        env.infos.admissible_commands = True
+        env.display_command_during_render = True
 
     def act(self, game_state, reward, done):
-        # print("Admissible actions: " + str(game_state.admissible_commands))
-        return self.rng.choice(game_state.admissible_commands)
+        if game_state.admissible_commands is None:
+            msg = "'--mode random-cmd' is only supported for generated games."
+            raise NameError(msg)
 
+        return self.rng.choice(game_state.admissible_commands)
 
 class WalkthroughDone(NameError):
     pass
@@ -59,18 +57,18 @@ class WalkthroughAgent(textworld.Agent):
         self.commands = commands
 
     def reset(self, env):
-        env.activate_state_tracking()
         env.display_command_during_render = True
         if self.commands is not None:
             self._commands = iter(self.commands)
             return  # Commands already specified.
 
-        if not hasattr(env, "game"):
-            msg = "WalkthroughAgent is only supported for generated games."
+        game_state = env.reset()
+        if game_state.get("extra.walkthrough") is None:
+            msg = "WalkthroughAgent is only supported for games that have a walkthrough."
             raise NameError(msg)
 
         # Load command from the generated game.
-        self._commands = iter(env.game.quests[0].commands)
+        self._commands = iter(game_state.get("extra.walkthrough"))
 
     def act(self, game_state, reward, done):
         try:
@@ -83,9 +81,9 @@ class WalkthroughAgent(textworld.Agent):
 
 
 def test_agent(agent, game, out, max_step=1000, nb_episodes=5):
-    env = textworld.start(game)  # Start the game.
+    info = EnvInfos(admissible_commands = True, description = True)
+    env = textworld.start(game, info)  # Start the game.
     #print(game.split("/")[-1], end="")
-    env.enable_extra_info('description')
 
     # Collect some statistics: nb_steps, final reward.
     avg_moves, avg_scores = [], []
@@ -128,14 +126,13 @@ def test_agent(agent, game, out, max_step=1000, nb_episodes=5):
 
 
 def call_stanford_openie(sentence):
-    url = "http://localhost:9000/"
+    url = "http://localhost:9001/"
     querystring = {
         "properties": "%7B%22annotators%22%3A%20%22openie%22%7D",
         "pipelineLanguage": "en"}
     response = requests.request("POST", url, data=sentence, params=querystring)
     response = json.JSONDecoder().decode(response.text)
     return response
-
 
 def generate_data(games, type):
         if type == 'collect':
@@ -212,7 +209,6 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Please supply directory with games and type.")
         exit()
-
     games = glob.glob(sys.argv[1] + '*.ulx')[:2]
     print(games)
     generate_data(games, sys.argv[2])

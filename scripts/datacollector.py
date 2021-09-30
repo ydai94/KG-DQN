@@ -201,8 +201,9 @@ def generate_data(games, type):
             ent_out = open('./entity2id.tsv', 'w')
             rel_out = open('./relation2id.tsv', 'w')
 
+            ent_out.write('\t' + str(0) + '\n')
             for i, e in enumerate(entities):
-                ent_out.write('_'.join(e.split()) + '\t' + str(i) + '\n')
+                ent_out.write('_'.join(e.split()) + '\t' + str(i+1) + '\n')
 
             ent_out.close()
             for i, r in enumerate(relations):
